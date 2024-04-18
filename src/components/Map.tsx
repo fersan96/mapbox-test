@@ -13,7 +13,7 @@ export const Map = () => {
   const [lat, setLat] = useState(22.954331);
 
   useEffect(() => {
-    map.current = new mapboxgl.Map({
+    const currentMap = new mapboxgl.Map({
       container: mapContainer.current || document.createElement("div"),
       style: process.env.NEXT_PUBLIC_SECTION_MAP_URL,
       center: [lng, lat],
@@ -21,56 +21,55 @@ export const Map = () => {
       pitch: 0,
     });
 
-    map?.current?.on("click", function (e: any) {
-      if (!map?.current) return;
+    currentMap.on("style.load", function (e: any) {
 
-      const regex: RegExp = /\d+\w+(seccion|municipio)$/gm;
-      const features: any[] = map.current.queryRenderedFeatures(e.point);
-      const trueLayer = features.filter((feature) => {
-        const regexValidation: boolean = regex.test(feature?.layer?.id);
-        // * features?.[0]?.properties?.FIRST. This element must exist if the place  you click has candidates. Avoid you'r not clicking a water layer, woods etc.
+      // Note: encode UNIQUE_ID as feature.id in the data directly to avoid this hack
+      currentMap.getSource("composite").promoteId = {
+        "2018_seccion2GeoJSON": "UNIQUE_ID",
+        "2018_municipal": "UNIQUE_ID"
+      };
 
-        return regexValidation === true;
-      });
-
-      if (
-        trueLayer.length &&
-        trueLayer?.[0]?.properties?.FIRST &&
-        trueLayer?.[0]?.properties?.FIRST_VOTES
-      ) {
-        const coordinates = trueLayer[0]?.geometry?.coordinates;
-
-        if (map.current.getLayer("selected-area-border")) {
-          map.current.removeLayer("selected-area-border");
-        }
-        if (map.current.getSource("selected-area")) {
-          map.current.removeSource("selected-area");
-        }
-
-        map.current.addSource("selected-area", {
-          type: "geojson",
-          data: {
-            type: "Feature",
-            geometry: {
-              type: "Polygon",
-              coordinates: [coordinates[0]],
+      // add a highlight layer for both source layers, initially invisible
+      for (const sourceLayer of ["2018_seccion2GeoJSON", "2018_municipal"]) {
+        currentMap.addLayer({
+            id: `${sourceLayer}_highlight`,
+            type: "line",
+            source: "composite",
+            'source-layer': sourceLayer,
+            paint: {
+              "line-color": "black",
+              "line-width": 3,
+              "line-opacity": ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0]
             },
-            properties: {},
-          },
-        });
-
-        map.current.addLayer({
-          id: "selected-area-border",
-          type: "line",
-          source: "selected-area",
-          layout: {},
-          paint: {
-            "line-color": "black",
-            "line-width": 3,
-          },
         });
       }
     });
+
+    let selectedFeature = null;
+
+    currentMap.on("click", function (e: any) {
+      if (selectedFeature) { // reset previously selected feature
+        currentMap.setFeatureState(selectedFeature, {selected: false});
+      }
+
+      // query a feature from one of the 4 layers
+      selectedFeature = currentMap.queryRenderedFeatures(e.point, {
+        layers: [
+          "2018_presidencial_mexico_data_seccion",
+          "2018_presidencial_mexico_data_municipio",
+          "2024_presidencial_mexico_data_seccion",
+          "2024_presidencial_mexico_data_municipio"
+        ]
+      })[0];
+
+      // if found, set it as selected (triggering the opacity expression in one of the highlight layers)
+      if (selectedFeature && selectedFeature.properties.FIRST && selectedFeature.properties.FIRST_VOTES) {
+        currentMap.setFeatureState(selectedFeature, {selected: true});
+      }
+    });
+
+    map.current = currentMap;
+
   }, [lat, lng]);
 
   return (
