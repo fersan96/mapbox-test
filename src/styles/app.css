@@ -1,0 +1,20 @@
+.containerMap {
+  height: 100vh;
+  position: relative;
+}
+
+.wrapperButtons {
+  position: absolute;
+  bottom: 30px;
+  left: 30px;
+  display: flex;
+  gap: 8px;
+}
+.button {
+  padding: 4px 8px;
+  background-color: cadetblue;
+  border-radius: 8px;
+  color: #fff;
+  height: 43px;
+  width: 74px;
+}
