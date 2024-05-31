@@ -12,6 +12,7 @@ export const Map = () => {
   const map = useRef<mapboxgl.Map | null>(null);
   const [lng, setLng] = useState(-102.83569);
   const [lat, setLat] = useState(22.954331);
+  let selectedFeature = null;
 
   useEffect(() => {
     const currentMap = new mapboxgl.Map({
@@ -24,16 +25,15 @@ export const Map = () => {
 
     currentMap.on("style.load", function (e: any) {
       // Note: encode UNIQUE_ID as feature.id in the data directly to avoid this hack
-      currentMap.getSource("composite").promoteId = {
+      const idConfig = currentMap.getSource("composite").promoteId = {
         "2018_seccion2GeoJSON": "UNIQUE_ID",
         "2018_municipal": "UNIQUE_ID",
+        "2024_seccion_1": "UNIQUE_ID",
+        "2024_municipal": "UNIQUE_ID",
       };
-      // ! The 2024 UNIQUE_ID are : 
-      // ! 2024_municipal
-      // ! 2024_seccion_1
       
       // add a highlight layer for both source layers, initially invisible
-      for (const sourceLayer of ["2018_seccion2GeoJSON", "2018_municipal"]) {
+      for (const sourceLayer of Object.keys(idConfig)) {
         currentMap.addLayer({
           id: `${sourceLayer}_highlight`,
           type: "line",
@@ -52,8 +52,6 @@ export const Map = () => {
         });
       }
     });
-
-    let selectedFeature = null;
 
     currentMap.on("click", function (e: any) {
       if (selectedFeature) {
@@ -92,6 +90,11 @@ export const Map = () => {
 
     if (!map.current) return;
     // const layers = map.current.getStyle().layers; // get all layers
+
+    if (selectedFeature) {
+      // reset previously selected feature
+      map.current.setFeatureState(selectedFeature, { selected: false });
+    }
 
     // * Show/Hide the layers | 2018 & 2024
     if (year === "2024") {
